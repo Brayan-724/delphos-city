@@ -12,7 +12,8 @@ use crate::boilerplate::{
     PointerHandler, SeatHandler,
 };
 use crate::{
-    DelphosWindow, DelphosWindowApp, DelphosWindowDraw, DelphosWindowKeyboard, DelphosWindowPointer,
+    DelphosWindow, DelphosWindowApp, DelphosWindowDraw, DelphosWindowKeyboard,
+    DelphosWindowPointer, Time,
 };
 
 impl<State: DelphosWindowKeyboard> KeyboardHandler for DelphosWindow<State> {
@@ -135,29 +136,43 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
 
 impl<State: DelphosWindowDraw> CompositorHandler for DelphosWindow<State> {
     fn frame(&mut self, ctx: boilerplate::CompositorHandlerCtx<'_, Self>, time: u32) {
-        if self.window.last_delta != 0 {
-            self.window.delta = time.abs_diff(self.window.last_delta);
-            self.window.average_delta += self.window.delta;
-        }
-        self.window.last_delta = time;
+        {
+            let mut time_res = self.window.world.resource::<Time>().write();
 
-        self.window.frame_count += 1;
-
-        if time > self.window.update_frame_count {
-            if self.window.update_frame_count != 0 {
-                let frames = self.window.frame_count - self.window.last_frame_count;
-                self.window.last_frame_count = self.window.frame_count;
-
-                let average_delta = self.window.average_delta / frames;
-                log::debug!(target: "window::stats", "FPS: {frames} @ {average_delta}ms");
-
-                self.window.average_delta = 0;
+            if time_res.elapsed == 0 {
+                time_res.started = time;
+                time_res.elapsed = 1;
+            } else {
+                time_res.elapsed = time - time_res.started;
             }
 
-            self.window.update_frame_count = time + 1000;
+            // --- Delta ---
+
+            if time_res.last_delta != 0 {
+                time_res.delta = time.abs_diff(time_res.last_delta);
+                time_res.average_delta += time_res.delta;
+            }
+            time_res.last_delta = time;
+
+            // --- FPS ---
+
+            time_res.frame_count += 1;
+            if time > time_res.update_frame_count {
+                if time_res.update_frame_count != 0 {
+                    let frames = time_res.frame_count - time_res.last_frame_count;
+                    time_res.last_frame_count = time_res.frame_count;
+
+                    let average_delta = time_res.average_delta / frames;
+                    log::debug!(target: "window::stats", "FPS: {frames} @ {average_delta}ms");
+
+                    time_res.average_delta = 0;
+                }
+
+                time_res.update_frame_count = time + 1000;
+            }
         }
 
-        self.app.draw(&mut self.window, ctx, time);
+        self.app.draw(&mut self.window, ctx);
     }
 }
 
@@ -198,7 +213,7 @@ impl<State: DelphosWindowDraw> LayerHandler for DelphosWindow<State> {
                 data: ctx.data.wl_surface(),
             };
 
-            self.app.draw(&mut self.window, ctx, 0);
+            self.app.draw(&mut self.window, ctx);
         }
     }
 }

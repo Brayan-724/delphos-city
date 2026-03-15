@@ -292,6 +292,7 @@ name = "delphos-window"
 version = "0.1.0"
 dependencies = [
  "bon",
+ "delphos-ecs",
  "delphos-math",
  "log",
  "smithay-client-toolkit",

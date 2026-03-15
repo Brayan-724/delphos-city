@@ -3,7 +3,7 @@ use delphos_window::sctk::{Region, WaylandSurface};
 use delphos_window::wayland::WlFormat;
 use delphos_window::{
     DelphosWindowApp, DelphosWindowDraw, DelphosWindowKeyboard, DelphosWindowPointer, OpenWindow,
-    sctk,
+    Time, sctk,
 };
 use image::RgbaImage;
 
@@ -77,8 +77,9 @@ impl DelphosWindowDraw for DelphosApp {
         &mut self,
         window: &mut delphos_window::DelphosWindowState,
         ctx: delphos_window::DrawCtx<'_, Self>,
-        time: u32,
     ) {
+        let time = window.world.resource::<Time>().read();
+
         let width = self.size.x;
         let height = self.size.y;
         let stride = width as i32 * 4;
@@ -90,7 +91,7 @@ impl DelphosWindowDraw for DelphosApp {
 
         // Draw to the window:
         {
-            let shift = time / 3;
+            let shift = time.elapsed / 3;
             canvas
                 .chunks_exact_mut(4)
                 .enumerate()

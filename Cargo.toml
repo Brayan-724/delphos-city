@@ -6,6 +6,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+delphos-ecs.path = "crates/delphos-ecs"
 delphos-math.path = "crates/delphos-math"
 delphos-window.path = "crates/delphos-window"
 

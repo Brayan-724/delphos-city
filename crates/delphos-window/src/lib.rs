@@ -1,12 +1,15 @@
+use delphos_ecs::WorldContainer;
 
 pub use app::*;
 pub use open::*;
+pub use resources::*;
 
 mod app;
 mod boilerplate;
 mod macros;
 mod open;
 mod outputs;
+mod resources;
 mod window;
 
 pub mod sctk {
@@ -53,12 +56,8 @@ pub struct DelphosWindowState {
     pub pool: sctk::SlotPool,
     pub layer_surface: sctk::LayerSurface,
 
-    pub frame_count: u32,
-    last_frame_count: u32,
-    update_frame_count: u32,
-    pub delta: u32,
-    last_delta: u32,
-    average_delta: u32,
+    pub world: WorldContainer,
+
     pub exit: bool,
     configured: bool,
 }
