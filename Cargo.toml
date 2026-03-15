@@ -1,0 +1,31 @@
+[workspace]
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+delphos-math.path = "crates/delphos-math"
+delphos-window.path = "crates/delphos-window"
+
+# Logger
+log = "0.4.29"
+
+# Builder
+bon = "3.9.1"
+
+[package]
+name = "delphos-city"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+asefile = "0.3.8"
+delphos-math.workspace = true
+delphos-window.workspace = true
+
+# Logger
+env_logger = "0.11.9"
+image = { version = "0.24.9", default-features = false }
+log.workspace = true

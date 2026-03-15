@@ -1,0 +1,9 @@
+[package]
+name = "delphos-ecs"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Logger
+log.workspace = true
+

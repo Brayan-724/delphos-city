@@ -1,0 +1,8 @@
+[package]
+name = "delphos-math"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Logger
+log.workspace = true
