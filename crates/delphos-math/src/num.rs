@@ -3,8 +3,8 @@ use std::ops;
 use crate::macros;
 
 macro_rules! mark {
-    ($trait:ident: $($ty:ty),*) => {
-        $(impl $trait for $ty {})*
+    ($trait:ident $t:tt: $($ty:ty),*) => {
+        $(impl $trait for $ty $t)*
     };
 }
 
@@ -17,6 +17,8 @@ pub trait Number:
     + Copy
     + Clone
 {
+    const ZERO: Self;
+
     fn cast<T>(self) -> T
     where
         Self: NumberCast<T>,
@@ -24,15 +26,23 @@ pub trait Number:
         self.number_cast()
     }
 }
-mark!(Number: u8, u16, u32, u64, u128);
-mark!(Number: i8, i16, i32, i64, i128);
-mark!(Number: f32, f64);
+mark!(Number {
+    const ZERO: Self = 0;
+}: u8, u16, u32, u64, u128);
+
+mark!(Number {
+    const ZERO: Self = 0;
+}: i8, i16, i32, i64, i128);
+
+mark!(Number {
+    const ZERO: Self = 0.;
+}: f32, f64);
 
 pub trait Unsigned: Number {}
-mark!(Unsigned: u8, u16, u32, u64, u128);
+mark!(Unsigned {}: u8, u16, u32, u64, u128);
 
 pub trait Integer: Number {}
-mark!(Integer: i8, i16, i32, i64, i128);
+mark!(Integer {}: i8, i16, i32, i64, i128);
 
 pub trait Float: Number {
     fn powi(self, rhs: i32) -> Self;

@@ -1,6 +1,6 @@
 use std::ptr::NonNull;
 
-use delphos_ecs::{World, WorldContainer};
+use delphos_ecs::WorldContainer;
 use delphos_math::U32Vec2;
 use smithay_client_toolkit::shell::WaylandSurface;
 use wayland_client::Proxy;

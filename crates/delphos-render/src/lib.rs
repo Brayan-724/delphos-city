@@ -2,17 +2,21 @@ use std::ffi::c_void;
 use std::ptr::NonNull;
 
 pub use ::wgpu;
+use delphos_ecs::Resource;
 use delphos_ecs::World;
+use delphos_math::FVec2;
 use delphos_math::UVec2;
 use wgpu::rwh::{RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle};
 
 pub use self::bind_group::*;
+pub use self::camera::*;
 pub use self::render_queue::*;
 pub use self::resources::*;
 pub use self::shader::*;
 pub use self::structs::*;
 
 mod bind_group;
+mod camera;
 mod render_queue;
 mod resources;
 mod shader;
@@ -91,6 +95,19 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
 
     surface.configure(&device, &surface_config);
 
+    let camera = {
+        let viewport = size.as_f32();
+        let height = 1.;
+
+        Camera::new(
+            world,
+            viewport,
+            FVec2::new(viewport.x / viewport.y * height, height),
+        )
+    };
+    let camera_layout = camera.bind_group.get(world).read().layout;
+    world.insert_resource(camera);
+
     let shader_module = ShaderModule::new(
         &device,
         include_str!("../../../assets/shaders/base.wgsl").into(),
@@ -113,7 +130,7 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
         .name("Base")
         .world(world)
         .device(&device)
-        .bind_layouts(&[bind_layout])
+        .bind_layouts(&[bind_layout, camera_layout])
         .shader(shader_module)
         .vertex_buffers(&[Vertex::layout()])
         .fragment_format(cap.formats[0])
@@ -188,11 +205,15 @@ pub fn draw<W: World>(world: &mut W) {
             let mut batch_start = 0;
             let mut current_params = render_queue.read().triangles()[0].params;
 
-            let pipeline = world.component(&current_params.shader);
-            rp.set_pipeline(&pipeline.read().pipeline);
+            rp.set_pipeline(&current_params.shader.get(world).read().pipeline);
 
-            let material = world.component(&current_params.material);
-            rp.set_bind_group(0, &material.read().group, &[]);
+            rp.set_bind_group(0, &current_params.material.get(world).read().group, &[]);
+
+            rp.set_bind_group(
+                1,
+                &Camera::get(world).read().bind_group.get(world).read().group,
+                &[],
+            );
 
             for tri in render_queue.read().triangles() {
                 let end = offset + 3;
@@ -202,11 +223,11 @@ pub fn draw<W: World>(world: &mut W) {
                     rp.draw_indexed(batch_start..offset, 0, 0..1);
 
                     if current_params.shader != tri.params.shader {
-                        let pipeline = world.component(&tri.params.shader);
+                        let pipeline = tri.params.shader.get(world);
                         rp.set_pipeline(&pipeline.read().pipeline);
                     }
                     if current_params.material != tri.params.material {
-                        let material = world.component(&tri.params.material);
+                        let material = tri.params.material.get(world);
                         rp.set_bind_group(0, &material.read().group, &[]);
                     }
                     current_params = tri.params;

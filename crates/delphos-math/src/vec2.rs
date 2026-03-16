@@ -18,6 +18,13 @@ pub struct Vec2<Unit> {
     pub y: Unit,
 }
 
+impl<Unit: Number> Vec2<Unit> {
+    pub const ZERO: Self = Vec2 {
+        x: Unit::ZERO,
+        y: Unit::ZERO,
+    };
+}
+
 impl<Unit> Vec2<Saturating<Unit>> {
     pub fn unsaturate(self) -> Vec2<Unit> {
         Vec2 {
@@ -30,6 +37,13 @@ impl<Unit> Vec2<Saturating<Unit>> {
 impl<Unit> Vec2<Unit> {
     pub fn new(x: Unit, y: Unit) -> Self {
         Self { x, y }
+    }
+
+    pub fn splat(n: Unit) -> Self
+    where
+        Unit: Copy,
+    {
+        Self { x: n, y: n }
     }
 
     pub fn set_x(self, x: Unit) -> Self {
@@ -62,6 +76,22 @@ impl<Unit> Vec2<Unit> {
         Unit: Float,
     {
         (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+}
+
+impl<Unit: Copy> Vec2<Unit> {
+    pub fn xx(self) -> Self {
+        Self {
+            x: self.x,
+            y: self.x,
+        }
+    }
+
+    pub fn yy(self) -> Self {
+        Self {
+            x: self.x,
+            y: self.x,
+        }
     }
 }
 
@@ -107,7 +137,20 @@ macro_rules! impl_op {
         $($trait:ident, $fn:ident, $op:tt;)*
         [assign]
         $($atrait:ident, $afn:ident, $aop:tt;)*
-    ) => {$(
+    ) => {
+
+        impl<Unit: ops::Neg> ops::Neg for Vec2<Unit> {
+            type Output = Vec2<Unit::Output>;
+
+            fn neg(self) -> Self::Output {
+                Vec2 {
+                    x: -self.x,
+                    y: -self.y,
+                }
+            }
+        }
+
+        $(
         impl<Unit: ops::$trait> ops::$trait for Vec2<Unit> {
             type Output = Vec2<Unit::Output>;
 

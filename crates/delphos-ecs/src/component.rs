@@ -1,7 +1,7 @@
 use std::any::{self, TypeId};
 use std::marker::PhantomData;
 
-use crate::EntityId;
+use crate::{EntityId, Rwc, World};
 
 pub trait Component: Sized + 'static {
     fn id() -> TypeId {
@@ -44,5 +44,13 @@ impl<C: Component> PartialOrd for ComponentId<C> {
 impl<C: Component> ComponentId<C> {
     pub fn untyped(self) -> UntypedComponentId {
         UntypedComponentId(self.0, C::id())
+    }
+
+    pub fn get(&self, world: &mut impl World) -> Rwc<C> {
+        world.component(self)
+    }
+
+    pub fn get_checked(&self, world: &mut impl World) -> Option<Rwc<C>> {
+        world.component_checked(self)
     }
 }
