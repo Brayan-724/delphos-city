@@ -6,9 +6,11 @@ edition.workspace = true
 [dependencies]
 delphos-ecs.workspace = true
 delphos-math.workspace = true
+delphos-render.workspace = true
 
-log.workspace = true
 bon.workspace = true
+log.workspace = true
+tokio.workspace = true
 
 smithay-client-toolkit = "0.20.0"
-wayland-client = "0.31.13"
+wayland-client = { version = "0.31.13", features = ["system"] }

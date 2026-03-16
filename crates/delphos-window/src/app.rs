@@ -2,7 +2,7 @@ use std::fmt;
 
 use delphos_math::IVec2;
 
-use crate::{DelphosWindow, DelphosWindowState, OpenWindow, boilerplate, sctk, wayland};
+use crate::{DelphosWindow, DelphosWorld, OpenWindow, boilerplate, sctk, wayland};
 
 pub type ConfigureCtx<'a, State> = boilerplate::LayerHandlerCtx<'a, DelphosWindow<State>>;
 
@@ -10,11 +10,11 @@ pub trait DelphosWindowApp: Sized + 'static {
     fn setup(pos: IVec2, size: IVec2, output: wayland::WlOutput) -> OpenWindow;
 
     type NewError: fmt::Debug;
-    fn new(window: &mut DelphosWindowState) -> Result<Self, Self::NewError>;
+    fn new(world: &mut DelphosWorld) -> Result<Self, Self::NewError>;
 
     fn configure(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: &ConfigureCtx<'_, Self>,
         configure: sctk::LayerSurfaceConfigure,
         serial: u32,
@@ -29,21 +29,21 @@ pub type KeyboardCtx<'a, State> = boilerplate::KeyboardHandlerCtx<'a, DelphosWin
 pub trait DelphosWindowKeyboard: DelphosWindowApp {
     fn press_key(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: KeyboardCtx<'_, Self>,
         event: sctk::KeyEvent,
     ) {
     }
     fn repeat_key(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: KeyboardCtx<'_, Self>,
         event: sctk::KeyEvent,
     ) {
     }
     fn release_key(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: KeyboardCtx<'_, Self>,
         event: sctk::KeyEvent,
     ) {
@@ -59,21 +59,21 @@ pub type PointerEventCtx<'a, State> = boilerplate::PointerEventHandlerCtx<'a, De
 pub trait DelphosWindowPointer: DelphosWindowApp {
     fn pointer_enter(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: PointerEventCtx<'_, Self>,
         event: &sctk::PointerEvent,
     ) {
     }
     fn pointer_leave(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: PointerEventCtx<'_, Self>,
         event: &sctk::PointerEvent,
     ) {
     }
     fn pointer_press(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: PointerEventCtx<'_, Self>,
         event: &sctk::PointerEvent,
         button: u32,
@@ -82,7 +82,7 @@ pub trait DelphosWindowPointer: DelphosWindowApp {
     }
     fn pointer_release(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: PointerEventCtx<'_, Self>,
         event: &sctk::PointerEvent,
         button: u32,
@@ -91,7 +91,7 @@ pub trait DelphosWindowPointer: DelphosWindowApp {
     }
     fn pointer_motion(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: PointerCtx<'_, Self>,
         event: &sctk::PointerEvent,
         time: u32,
@@ -99,7 +99,7 @@ pub trait DelphosWindowPointer: DelphosWindowApp {
     }
     fn pointer_axis(
         &mut self,
-        window: &mut DelphosWindowState,
+        world: &mut DelphosWorld,
         ctx: PointerCtx<'_, Self>,
         event: &sctk::PointerEvent,
         time: u32,
@@ -116,5 +116,5 @@ pub type DrawCtx<'a, State> = boilerplate::CompositorHandlerCtx<'a, DelphosWindo
 
 #[expect(unused_variables, reason = "Blank implementations")]
 pub trait DelphosWindowDraw: DelphosWindowApp {
-    fn draw(&mut self, window: &mut DelphosWindowState, ctx: DrawCtx<'_, Self>) {}
+    fn draw(&mut self, world: &mut DelphosWorld, ctx: DrawCtx<'_, Self>) {}
 }

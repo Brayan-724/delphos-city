@@ -1,4 +1,4 @@
-use delphos_ecs::WorldContainer;
+use delphos_ecs::{World, WorldContainer};
 
 pub use app::*;
 pub use open::*;
@@ -43,7 +43,7 @@ pub mod wayland {
 }
 
 pub struct DelphosWindow<State: DelphosWindowApp> {
-    pub window: DelphosWindowState,
+    pub world: DelphosWorld,
     pub app: State,
 }
 
@@ -56,8 +56,75 @@ pub struct DelphosWindowState {
     pub pool: sctk::SlotPool,
     pub layer_surface: sctk::LayerSurface,
 
-    pub world: WorldContainer,
-
-    pub exit: bool,
     configured: bool,
+}
+
+pub struct DelphosWorld {
+    pub window: DelphosWindowState,
+    container: WorldContainer,
+
+    exit: bool,
+}
+
+impl DelphosWorld {
+    pub fn exit(&mut self) {
+        self.exit = true;
+    }
+
+    pub fn window(&self) -> &DelphosWindowState {
+        &self.window
+    }
+
+    pub fn window_mut(&mut self) -> &mut DelphosWindowState {
+        &mut self.window
+    }
+}
+
+impl World for DelphosWorld {
+    fn insert_resource<R: delphos_ecs::Resource>(
+        &mut self,
+        resource: R,
+    ) -> Option<delphos_ecs::Rwc<R>> {
+        self.container.insert_resource(resource)
+    }
+
+    fn resource<R: delphos_ecs::Resource>(&mut self) -> delphos_ecs::Rwc<R> {
+        self.container.resource()
+    }
+
+    fn spawn(&mut self) -> delphos_ecs::Rwc<delphos_ecs::Entity> {
+        self.container.spawn()
+    }
+
+    fn entity(&self, id: &delphos_ecs::EntityId) -> delphos_ecs::Rwc<delphos_ecs::Entity> {
+        self.container.entity(id)
+    }
+
+    fn entity_checked(
+        &self,
+        id: &delphos_ecs::EntityId,
+    ) -> Option<delphos_ecs::Rwc<delphos_ecs::Entity>> {
+        self.container.entity_checked(id)
+    }
+
+    fn spawn_component<C: delphos_ecs::Component>(
+        &mut self,
+        component: C,
+    ) -> delphos_ecs::ComponentId<C> {
+        self.container.spawn_component(component)
+    }
+
+    fn component<C: delphos_ecs::Component>(
+        &self,
+        id: &delphos_ecs::ComponentId<C>,
+    ) -> delphos_ecs::Rwc<C> {
+        self.container.component(id)
+    }
+
+    fn component_checked<C: delphos_ecs::Component>(
+        &self,
+        id: &delphos_ecs::ComponentId<C>,
+    ) -> Option<delphos_ecs::Rwc<C>> {
+        self.container.component_checked(id)
+    }
 }

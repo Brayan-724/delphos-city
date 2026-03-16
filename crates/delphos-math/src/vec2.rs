@@ -12,7 +12,7 @@ pub type I32Vec2 = Vec2<i32>;
 pub type FVec2 = F32Vec2;
 pub type F32Vec2 = Vec2<f32>;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Vec2<Unit> {
     pub x: Unit,
     pub y: Unit,

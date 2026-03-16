@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use delphos_math::{I32Vec2, IVec2};
+use delphos_math::IVec2;
 use smithay_client_toolkit::{
     delegate_output, delegate_registry,
     output::{OutputHandler, OutputInfo, OutputState},
@@ -31,19 +31,15 @@ pub fn get_main_output(conn: &Connection) -> Result<(IVec2, IVec2, WlOutput), Bo
         .get_main_output()
         .expect("Should be at least one output");
 
-    let pos = info.logical_position.unwrap_or_default();
-    let size = info.logical_size.expect("Unable to determine output size");
+    let pos = IVec2::from(info.logical_position.unwrap_or_default());
+    let size = IVec2::from(info.logical_size.expect("Unable to determine output size"));
 
     log::debug!("Main output info:");
-    log::debug!("\tx: {}, y: {}", info.location.0, info.location.1);
-    if let (x, y) = &pos {
-        log::debug!("\tlogical x: {x}, y: {y}");
-    }
-    if let (width, height) = &size {
-        log::debug!("\tlogical width: {width}, height: {height}");
-    }
+    log::debug!("\tname         {}", info.name.unwrap_or(info.model));
+    log::debug!("\tlogical pos  {pos:?}");
+    log::debug!("\tlogical size {size:?}");
 
-    Ok((IVec2::from(pos), IVec2::from(size), output))
+    Ok((pos, size, output))
 }
 
 struct ListOutputs {

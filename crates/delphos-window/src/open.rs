@@ -1,17 +1,23 @@
-use delphos_ecs::WorldContainer;
+use std::ptr::NonNull;
+
+use delphos_ecs::{World, WorldContainer};
 use delphos_math::U32Vec2;
+use smithay_client_toolkit::shell::WaylandSurface;
+use wayland_client::Proxy;
 use wayland_client::globals::registry_queue_init;
 
 use crate::{
     DelphosWindow, DelphosWindowDraw, DelphosWindowKeyboard, DelphosWindowPointer,
-    DelphosWindowState, outputs, sctk, wayland,
+    DelphosWindowState, DelphosWorld, outputs, sctk, wayland,
 };
 
-pub fn start_window<State: DelphosWindowDraw + DelphosWindowPointer + DelphosWindowKeyboard>() {
+pub async fn start_window<
+    State: DelphosWindowDraw + DelphosWindowPointer + DelphosWindowKeyboard,
+>() {
     let conn = wayland::Connection::connect_to_env().unwrap();
     let (pos, size, output) = outputs::get_main_output(&conn).unwrap();
 
-    State::setup(pos, size, output).run::<State>(&conn);
+    State::setup(pos, size, output).run::<State>(&conn).await;
 }
 
 #[derive(bon::Builder)]
@@ -35,8 +41,6 @@ impl OpenWindow {
         globals: &wayland::GlobalList,
         qh: &wayland::QueueHandle<DelphosWindow<State>>,
     ) -> (sctk::CompositorState, sctk::LayerSurface) {
-        use sctk::WaylandSurface;
-
         let compositor =
             sctk::CompositorState::bind(globals, qh).expect("wl_compositor is not available");
         let layer_shell =
@@ -65,7 +69,7 @@ impl OpenWindow {
         (compositor, layer_surface)
     }
 
-    pub fn run<State: DelphosWindowDraw + DelphosWindowPointer + DelphosWindowKeyboard>(
+    pub async fn run<State: DelphosWindowDraw + DelphosWindowPointer + DelphosWindowKeyboard>(
         self,
         conn: &wayland::Connection,
     ) {
@@ -76,9 +80,20 @@ impl OpenWindow {
 
         let (compositor, layer_surface) = self.create_layer_surface(&globals, &qh);
 
+        let (display_handle, window_handle) = unsafe {
+            (
+                delphos_render::display_handle(
+                    NonNull::new(conn.backend().display_ptr() as *mut _).unwrap(),
+                ),
+                delphos_render::window_handle(
+                    NonNull::new(layer_surface.wl_surface().id().as_ptr() as *mut _).unwrap(),
+                ),
+            )
+        };
+
         let pool = sctk::SlotPool::new(256 * 100 * 4, &shm).expect("Failed to create pool");
 
-        let mut window_state = DelphosWindowState {
+        let window = DelphosWindowState {
             compositor,
             registry: sctk::RegistryState::new(&globals),
             seat: sctk::SeatState::new(&globals, &qh),
@@ -87,15 +102,20 @@ impl OpenWindow {
             layer_surface,
             pool,
 
-            world: WorldContainer::default(),
-
-            exit: false,
             configured: false,
         };
 
+        let mut world = DelphosWorld {
+            window,
+            exit: false,
+            container: WorldContainer::default(),
+        };
+
+        delphos_render::start(&mut world, display_handle, window_handle).await;
+
         let mut layer = DelphosWindow {
-            app: State::new(&mut window_state).expect("Cannot intiantiate app"),
-            window: window_state,
+            app: State::new(&mut world).expect("Cannot intiantiate app"),
+            world,
         };
 
         event_queue.roundtrip(&mut layer).unwrap();
@@ -103,7 +123,7 @@ impl OpenWindow {
         loop {
             event_queue.blocking_dispatch(&mut layer).unwrap();
 
-            if layer.window.exit {
+            if layer.world.exit {
                 log::warn!("Exiting");
                 break;
             }

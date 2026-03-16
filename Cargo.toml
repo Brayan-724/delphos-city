@@ -8,13 +8,28 @@ edition = "2024"
 [workspace.dependencies]
 delphos-ecs.path = "crates/delphos-ecs"
 delphos-math.path = "crates/delphos-math"
+delphos-render.path = "crates/delphos-render"
 delphos-window.path = "crates/delphos-window"
 
-# Logger
-log = "0.4.29"
+# Async
+tokio = { version = "1.50", features = [
+  "fs",
+  "io-util",
+  "io-std",
+  "macros",
+  "net",
+  "parking_lot",
+  "process",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
 
 # Builder
 bon = "3.9.1"
+
+# Logger
+log = "0.4.29"
 
 [package]
 name = "delphos-city"
@@ -22,11 +37,18 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-asefile = "0.3.8"
+delphos-ecs.workspace = true
 delphos-math.workspace = true
+delphos-render.workspace = true
 delphos-window.workspace = true
+
+# Async
+tokio.workspace = true
 
 # Logger
 env_logger = "0.11.9"
-image = { version = "0.24.9", default-features = false }
 log.workspace = true
+
+# Sprite/Image loading
+asefile = "0.3.8"
+image = { version = "0.24.9", default-features = false }

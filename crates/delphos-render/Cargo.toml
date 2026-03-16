@@ -1,0 +1,19 @@
+[package]
+name = "delphos-render"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+delphos-ecs.workspace = true
+delphos-math.workspace = true
+
+log.workspace = true
+bon.workspace = true
+
+# Image processing
+asefile = "0.3.8"
+image = { version = "0.24.9", default-features = false }
+
+# Render
+wgpu = "28.0.0"
+bytemuck = { version = "1.25.0", features = ["derive"] }

@@ -1,3 +1,5 @@
+use delphos_ecs::World;
+use delphos_math::UVec2;
 use smithay_client_toolkit::output::OutputState;
 use smithay_client_toolkit::registry::RegistryState;
 use smithay_client_toolkit::seat::{
@@ -23,7 +25,7 @@ impl<State: DelphosWindowKeyboard> KeyboardHandler for DelphosWindow<State> {
         event: crate::sctk::KeyEvent,
     ) {
         log::debug!(target: "keyboard", "Pressed: {event:?}");
-        self.app.press_key(&mut self.window, ctx, event);
+        self.app.press_key(&mut self.world, ctx, event);
     }
 
     fn repeat_key(
@@ -31,7 +33,7 @@ impl<State: DelphosWindowKeyboard> KeyboardHandler for DelphosWindow<State> {
         ctx: boilerplate::KeyboardHandlerCtx<'_, Self>,
         event: crate::sctk::KeyEvent,
     ) {
-        self.app.repeat_key(&mut self.window, ctx, event);
+        self.app.repeat_key(&mut self.world, ctx, event);
     }
 
     fn release_key(
@@ -40,7 +42,7 @@ impl<State: DelphosWindowKeyboard> KeyboardHandler for DelphosWindow<State> {
         event: crate::sctk::KeyEvent,
     ) {
         log::debug!(target: "keyboard", "Released: {event:?}");
-        self.app.release_key(&mut self.window, ctx, event);
+        self.app.release_key(&mut self.world, ctx, event);
     }
 }
 
@@ -54,7 +56,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
             return;
         };
         log::debug!(target: "pointer", "Enter: {:?}", event.position);
-        self.app.pointer_enter(&mut self.window, ctx, event);
+        self.app.pointer_enter(&mut self.world, ctx, event);
     }
 
     fn pointer_leave(
@@ -66,7 +68,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
             return;
         };
         log::debug!(target: "pointer", "Leave: {:?}", event.position);
-        self.app.pointer_leave(&mut self.window, ctx, event);
+        self.app.pointer_leave(&mut self.world, ctx, event);
     }
 
     fn pointer_press(
@@ -79,7 +81,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
         };
         log::debug!(target: "pointer", "Press ({}): {:?}", button, event.position);
         self.app
-            .pointer_press(&mut self.window, ctx, event, button, time);
+            .pointer_press(&mut self.world, ctx, event, button, time);
     }
 
     fn pointer_release(
@@ -92,7 +94,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
         };
         log::debug!(target: "pointer", "Release ({}): {:?}", button, event.position);
         self.app
-            .pointer_release(&mut self.window, ctx, event, button, time);
+            .pointer_release(&mut self.world, ctx, event, button, time);
     }
 
     fn pointer_motion(
@@ -104,7 +106,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
             return;
         };
         log::debug!(target: "pointer", "Motion ({}): {:?}", time, event.position);
-        self.app.pointer_motion(&mut self.window, ctx, event, time);
+        self.app.pointer_motion(&mut self.world, ctx, event, time);
     }
 
     fn pointer_axis(
@@ -123,7 +125,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
         };
         log::debug!(target: "pointer", "Scroll {event:?}");
         self.app.pointer_axis(
-            &mut self.window,
+            &mut self.world,
             ctx,
             event,
             time,
@@ -137,7 +139,7 @@ impl<State: DelphosWindowPointer> PointerHandler for DelphosWindow<State> {
 impl<State: DelphosWindowDraw> CompositorHandler for DelphosWindow<State> {
     fn frame(&mut self, ctx: boilerplate::CompositorHandlerCtx<'_, Self>, time: u32) {
         {
-            let mut time_res = self.window.world.resource::<Time>().write();
+            let mut time_res = self.world.resource::<Time>().write();
 
             if time_res.elapsed == 0 {
                 time_res.started = time;
@@ -172,25 +174,26 @@ impl<State: DelphosWindowDraw> CompositorHandler for DelphosWindow<State> {
             }
         }
 
-        self.app.draw(&mut self.window, ctx);
+        self.app.draw(&mut self.world, ctx);
+        delphos_render::draw(&mut self.world);
     }
 }
 
 impl<State: DelphosWindowApp> BaseHandler for DelphosWindow<State> {
     fn registry(&mut self) -> &mut RegistryState {
-        &mut self.window.registry
+        &mut self.world.window.registry
     }
 
     fn seat_state(&mut self) -> &mut SeatState {
-        &mut self.window.seat
+        &mut self.world.window.seat
     }
 
     fn output_state(&mut self) -> &mut OutputState {
-        &mut self.window.output
+        &mut self.world.window.output
     }
 
     fn shm_state(&mut self) -> &mut Shm {
-        &mut self.window.shm
+        &mut self.world.window.shm
     }
 }
 
@@ -201,11 +204,12 @@ impl<State: DelphosWindowDraw> LayerHandler for DelphosWindow<State> {
         configure: crate::sctk::LayerSurfaceConfigure,
         serial: u32,
     ) {
-        self.app
-            .configure(&mut self.window, &ctx, configure, serial);
+        delphos_render::configure(&mut self.world, UVec2::from(configure.new_size));
 
-        if !self.window.configured {
-            self.window.configured = true;
+        self.app.configure(&mut self.world, &ctx, configure, serial);
+
+        if !self.world.window.configured {
+            self.world.window.configured = true;
 
             let ctx = super::DrawCtx {
                 conn: ctx.conn,
@@ -213,7 +217,8 @@ impl<State: DelphosWindowDraw> LayerHandler for DelphosWindow<State> {
                 data: ctx.data.wl_surface(),
             };
 
-            self.app.draw(&mut self.window, ctx);
+            self.app.draw(&mut self.world, ctx);
+            delphos_render::draw(&mut self.world);
         }
     }
 }
@@ -228,12 +233,12 @@ impl<State: DelphosWindowKeyboard + DelphosWindowPointer> SeatHandler for Delpho
     ) {
         if capability == Capability::Keyboard {
             log::debug!(target: "window::seat", "Enabled keyboard capability");
-            _ = self.window.seat.get_keyboard(ctx.qh, &ctx.data, None);
+            _ = self.world.window.seat.get_keyboard(ctx.qh, &ctx.data, None);
         }
 
         if capability == Capability::Pointer {
             log::debug!(target: "window::seat", "Enabled pointer capability");
-            _ = self.window.seat.get_pointer(ctx.qh, &ctx.data);
+            _ = self.world.window.seat.get_pointer(ctx.qh, &ctx.data);
         }
     }
 }
