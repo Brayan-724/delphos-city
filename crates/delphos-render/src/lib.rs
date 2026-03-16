@@ -97,7 +97,8 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
 
     let camera = {
         let viewport = size.as_f32();
-        let height = 1.;
+        let height = 3.; // GOOD Height
+        // let height = 1.; // Debug Height
 
         Camera::new(
             world,
@@ -187,7 +188,7 @@ pub fn draw<W: World>(world: &mut W) {
                 view: &texture_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                     store: wgpu::StoreOp::Store,
                 },
                 depth_slice: None,

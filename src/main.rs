@@ -12,6 +12,7 @@ async fn main() {
     env_logger::builder()
         .filter_module("naga", log::LevelFilter::Info)
         .filter_module("wgpu_hal", log::LevelFilter::Info)
+        .filter_module("sctk", log::LevelFilter::Info)
         .init();
 
     delphos_window::start_window::<DelphosApp>().await;
@@ -24,7 +25,7 @@ struct DelphosApp {
 impl DelphosWindowApp for DelphosApp {
     fn setup(_: IVec2, size: IVec2, output: delphos_window::wayland::WlOutput) -> OpenWindow {
         OpenWindow::builder()
-            .anchor(sctk::Anchor::TOP)
+            .anchor(sctk::Anchor::BOTTOM)
             .namespace("delphos-city")
             .output(output)
             .size(size.as_u32().set_y(100))
@@ -80,10 +81,15 @@ impl DelphosWindowDraw for DelphosApp {
     ) {
         let elapsed = world.resource::<Time>().read().elapsed;
 
-        for i in 0..6 {
-            let elapsed = elapsed + i * (12500 / 6);
-            let offset = ((elapsed % 12500) as f32) / 10000. - 0.25;
-            draw_person(world, FVec2::new(offset, 0.25));
+        const COUNT: u32 = 17;
+        for i in 0..COUNT {
+            const TIME: u32 = 10000;
+            const PADDING: f32 = 1.;
+            const PADDED: u32 = TIME + (TIME as f32 * PADDING) as u32;
+
+            let elapsed = elapsed + i * (PADDED / COUNT);
+            let offset = ((elapsed % PADDED) as f32) / TIME as f32 - PADDING;
+            draw_person(world, FVec2::new(offset * 6. - 1., 0.25));
         }
 
         // Request our next frame
