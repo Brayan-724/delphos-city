@@ -10,6 +10,7 @@ use wgpu::rwh::{RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, Wayland
 
 pub use self::bind_group::*;
 pub use self::camera::*;
+pub use self::material::*;
 pub use self::render_queue::*;
 pub use self::resources::*;
 pub use self::shader::*;
@@ -17,6 +18,7 @@ pub use self::structs::*;
 
 mod bind_group;
 mod camera;
+mod material;
 mod render_queue;
 mod resources;
 mod shader;
@@ -106,38 +108,40 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
             FVec2::new(viewport.x / viewport.y * height, height),
         )
     };
-    let camera_layout = camera.bind_group.get(world).read().layout;
     world.insert_resource(camera);
 
-    let shader_module = ShaderModule::new(
-        &device,
+    struct BaseMaterial {
+        sampler: wgpu::Sampler,
+        view: wgpu::TextureView,
+    }
+
+    impl Material for BaseMaterial {
+        fn layout(binding: u32) -> Option<MaterialLayout> {
+            match binding {
+                0 => Some(MaterialLayout::fragment(MaterialLayout::TEXTURE)),
+                1 => Some(MaterialLayout::fragment(MaterialLayout::SAMPLER)),
+                _ => None,
+            }
+        }
+
+        fn entry(&self, binding: u32) -> Option<wgpu::BindingResource<'_>> {
+            match binding {
+                0 => Some(MaterialLayout::texture(&self.view)),
+                1 => Some(MaterialLayout::sampler(&self.sampler)),
+                _ => None
+            }
+        }
+    }
+
+    let shader = DelphosRender::get(world).write().create_shader::<BaseMaterial, _, _>(
+        world,
+        "Base",
         include_str!("../../../assets/shaders/base.wgsl").into(),
-        Some("Base shader"),
+        Shader::builder()
+            .vertex_buffers(&[Vertex::layout()])
+            .fragment_format(cap.formats[0])
+            .fragment_blend(wgpu::BlendState::ALPHA_BLENDING),
     );
-
-    let shader_module = world.spawn_component(shader_module);
-
-    let bind_layout = BindLayout::new(
-        &device,
-        &[
-            BindLayout::entry_texture(0, wgpu::ShaderStages::FRAGMENT),
-            BindLayout::entry_sampler(1, wgpu::ShaderStages::FRAGMENT),
-        ],
-        Some("Texture Binds"),
-    );
-    let bind_layout = world.spawn_component(bind_layout);
-
-    let shader = Shader::builder()
-        .name("Base")
-        .world(world)
-        .device(&device)
-        .bind_layouts(&[bind_layout, camera_layout])
-        .shader(shader_module)
-        .vertex_buffers(&[Vertex::layout()])
-        .fragment_format(cap.formats[0])
-        .fragment_blend(wgpu::BlendState::ALPHA_BLENDING)
-        .build();
-    let shader = world.spawn_component(shader);
 
     let image = asefile::AsepriteFile::read(&include_bytes!("../../../assets/person.aseprite")[..])
         .unwrap()
@@ -149,20 +153,8 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
     let sampler = device.create_sampler(&Default::default());
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let material = BindGroup::spawn(
-        world,
-        &device,
-        bind_layout,
-        &[
-            BindGroup::entry_texture(0, &view),
-            BindGroup::entry_sampler(1, &sampler),
-        ],
-        Some("Base bind group"),
-    );
-
-    let params = BindParams { shader, material };
-
-    world.insert_resource(DelphosRender { params });
+    let material = BaseMaterial { sampler, view };
+    material.bind(world, shader);
 }
 
 pub fn draw<W: World>(world: &mut W) {

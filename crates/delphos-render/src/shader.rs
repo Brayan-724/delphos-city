@@ -2,17 +2,23 @@ use std::borrow::Cow;
 
 use delphos_ecs::{Component, ComponentId, World};
 
-use crate::BindLayoutId;
+use crate::{BindGroup, BindGroupId, BindLayout, BindLayoutId, DelphosRenderRaw, Material};
 
 // ------ Shader ------
 
 pub type ShaderId = ComponentId<Shader>;
 pub struct Shader {
+    pub name: String,
     pub module: ShaderModuleId,
     pub(crate) pipeline: wgpu::RenderPipeline,
+    pub bind_layout: BindLayoutId,
 }
 
 impl Component for Shader {}
+
+pub mod builder {
+    pub use super::shader_builder::*;
+}
 
 #[bon::bon]
 impl Shader {
@@ -40,6 +46,13 @@ impl Shader {
         #[builder(default = false)] unclipped_depth: bool,
         #[builder(default = false)] conservative: bool,
     ) -> Self {
+        let main_bind = if let Some(bind) = bind_layouts.get(0) {
+            *bind
+        } else {
+            let layout = BindLayout::new(device, &[], Some(&format!("{name} binds layout")));
+            world.spawn_component(layout)
+        };
+
         let pipeline_layout = {
             let label = format!("{name} pipeline layout");
 
@@ -98,9 +111,30 @@ impl Shader {
         });
 
         Self {
+            name,
             module: shader,
             pipeline,
+            bind_layout: main_bind,
         }
+    }
+}
+
+impl Shader {
+    pub fn create_material(&self, world: &mut impl World, material: &impl Material) -> BindGroupId {
+        let mut entries = Vec::new();
+
+        let mut binding = 0;
+        while let Some(resource) = material.entry(binding) {
+            entries.push(wgpu::BindGroupEntry { binding, resource });
+            binding += 1;
+        }
+
+        BindGroup::spawn(
+            world,
+            self.bind_layout,
+            &entries,
+            Some(format!("{} binds", self.name)),
+        )
     }
 }
 

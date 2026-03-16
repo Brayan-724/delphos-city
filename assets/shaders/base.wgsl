@@ -54,16 +54,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
   let normal = (in.uv  - 0.5) * 0.2;
   let light_dot = min(1, dot(light_source, normal) + 0.05);
-  let light_distance2 = 1 / (pow(length(light_source), 2));
+  let light_distance2 = 1 / length(light_source);
   let light_distance_flare = 1 / (pow(length(light_source), 4));
 
-  let light = smoothstep(0., rand2d(floor(in.uv * 60.) + in.position.xy), light_dot) * light_distance_flare;
+  let light = smoothstep(0., rand2d(floor(in.uv * 20.) + in.position.xy), light_dot) * light_distance_flare;
   // return vec4<f32>(vec3(light), 1.);
   var light_color = mix(vec4<f32>(1.), tex_color, 0.2);
   light_color.a = tex_color.a;
 
   var dark_color = mix(vec4<f32>(0.), tex_color, light_distance2);
-  dark_color.a = tex_color.a;
 
   return mix(dark_color, light_color, light);
 }

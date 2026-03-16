@@ -6,7 +6,7 @@ use crate::DelphosRenderRaw;
 
 pub type BindGroupId = ComponentId<BindGroup>;
 pub struct BindGroup {
-    label: Option<&'static str>,
+    label: Option<String>,
     pub group: wgpu::BindGroup,
     pub layout: BindLayoutId,
 }
@@ -16,25 +16,25 @@ impl Component for BindGroup {}
 impl BindGroup {
     pub fn spawn<'a>(
         world: &mut impl World,
-        device: &wgpu::Device,
         layout: BindLayoutId,
         entries: &[wgpu::BindGroupEntry<'a>],
-        label: Option<&'static str>,
+        label: Option<String>,
     ) -> BindGroupId {
-        let group = Self::new(world, device, layout, entries, label);
+        let group = Self::new(world, layout, entries, label);
         world.spawn_component(group)
     }
 
     pub fn new<'a>(
         world: &mut impl World,
-        device: &wgpu::Device,
         layout: BindLayoutId,
         entries: &[wgpu::BindGroupEntry<'a>],
-        label: Option<&'static str>,
+        label: Option<String>,
     ) -> Self {
+        let device = &world.resource::<DelphosRenderRaw>().read().device;
+
         Self {
             group: device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label,
+                label: label.as_ref().map(|s| s.as_str()),
                 layout: &world.component(&layout).read().layout,
                 entries,
             }),
@@ -49,27 +49,10 @@ impl BindGroup {
         self.group = raw_render
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: self.label,
+                label: self.label.as_ref().map(|s| s.as_str()),
                 layout: &world.component(&self.layout).read().layout,
                 entries,
             });
-    }
-
-    pub fn entry_texture<'a>(
-        binding: u32,
-        view: &'a wgpu::TextureView,
-    ) -> wgpu::BindGroupEntry<'a> {
-        wgpu::BindGroupEntry {
-            binding,
-            resource: wgpu::BindingResource::TextureView(&view),
-        }
-    }
-
-    pub fn entry_sampler<'a>(binding: u32, sampler: &'a wgpu::Sampler) -> wgpu::BindGroupEntry<'a> {
-        wgpu::BindGroupEntry {
-            binding,
-            resource: wgpu::BindingResource::Sampler(&sampler),
-        }
     }
 }
 
