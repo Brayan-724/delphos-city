@@ -8,7 +8,6 @@ use delphos_math::FVec2;
 use delphos_math::UVec2;
 use wgpu::rwh::{RawDisplayHandle, RawWindowHandle, WaylandDisplayHandle, WaylandWindowHandle};
 
-pub use self::bind_group::*;
 pub use self::camera::*;
 pub use self::material::*;
 pub use self::render_queue::*;
@@ -16,7 +15,6 @@ pub use self::resources::*;
 pub use self::shader::*;
 pub use self::structs::*;
 
-mod bind_group;
 mod camera;
 mod material;
 mod render_queue;
@@ -97,7 +95,7 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
 
     surface.configure(&device, &surface_config);
 
-    let camera = {
+    let mut camera = {
         let viewport = size.as_f32();
         let height = 3.; // GOOD Height
         // let height = 1.; // Debug Height
@@ -108,7 +106,43 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
             FVec2::new(viewport.x / viewport.y * height, height),
         )
     };
+    world.resource::<DelphosRender>().write().default_camera = Some(camera.bind(world));
     world.insert_resource(camera);
+
+    struct BaseShader;
+
+    impl Shader for BaseShader {
+        const NAME: &'static str = "Base";
+
+        fn source() -> std::borrow::Cow<'static, str> {
+            include_str!("../../../assets/shaders/base.wgsl").into()
+        }
+
+        fn config(world: &mut impl World) -> ShaderModuleConfig {
+            let raw_render = world.resource::<DelphosRenderRaw>().read();
+            let cap = raw_render.surface.get_capabilities(&raw_render.adapter);
+
+            static VERTEX_BUFFERS: VertexBufferLayouts = &[Vertex::layout()];
+
+            ShaderModuleConfig::builder()
+                .vertex_buffers(VERTEX_BUFFERS)
+                .fragment_format(cap.formats[0])
+                .fragment_blend(wgpu::BlendState::ALPHA_BLENDING)
+                .build()
+        }
+
+        fn materials(materials: &mut ShaderMaterials<Self>) {
+            materials.add_material::<BaseMaterial>();
+        }
+    }
+
+    impl ShaderMaterial<BaseShader> for BaseMaterial {
+        const BINDING: usize = 0;
+    }
+
+    impl ShaderMaterial<BaseShader> for Camera {
+        const BINDING: usize = 1;
+    }
 
     struct BaseMaterial {
         sampler: wgpu::Sampler,
@@ -128,20 +162,12 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
             match binding {
                 0 => Some(MaterialLayout::texture(&self.view)),
                 1 => Some(MaterialLayout::sampler(&self.sampler)),
-                _ => None
+                _ => None,
             }
         }
     }
 
-    let shader = DelphosRender::get(world).write().create_shader::<BaseMaterial, _, _>(
-        world,
-        "Base",
-        include_str!("../../../assets/shaders/base.wgsl").into(),
-        Shader::builder()
-            .vertex_buffers(&[Vertex::layout()])
-            .fragment_format(cap.formats[0])
-            .fragment_blend(wgpu::BlendState::ALPHA_BLENDING),
-    );
+    world.register_shader::<BaseShader>();
 
     let image = asefile::AsepriteFile::read(&include_bytes!("../../../assets/person.aseprite")[..])
         .unwrap()
@@ -153,13 +179,21 @@ pub fn configure<W: World>(world: &mut W, size: UVec2) {
     let sampler = device.create_sampler(&Default::default());
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let material = BaseMaterial { sampler, view };
-    material.bind(world, shader);
+    let mut material = BaseMaterial { sampler, view };
+    let bind = material.bind_shaded(world);
 }
 
 pub fn draw<W: World>(world: &mut W) {
     let raw_render = world.resource::<DelphosRenderRaw>().read();
+    let render = world.resource::<DelphosRender>().read();
     let render_queue = world.resource::<RenderQueue>();
+
+    let Some(camera) = render.default_camera else {
+        log::warn!("No camera setup");
+        return;
+    };
+
+    camera.update(&mut *Camera::get(world).write(), world);
 
     let surface = &raw_render.surface;
     let device = &raw_render.device;
@@ -198,15 +232,18 @@ pub fn draw<W: World>(world: &mut W) {
             let mut batch_start = 0;
             let mut current_params = render_queue.read().triangles()[0].params;
 
-            rp.set_pipeline(&current_params.shader.get(world).read().pipeline);
+            {
+                let shader = current_params.shader.get::<ShaderModule>(world).read();
+                rp.set_pipeline(&shader.pipeline);
+            }
 
-            rp.set_bind_group(0, &current_params.material.get(world).read().group, &[]);
+            {
+                rp.set_bind_group(0, &current_params.material.get(world).read().group, &[]);
+            }
 
-            rp.set_bind_group(
-                1,
-                &Camera::get(world).read().bind_group.get(world).read().group,
-                &[],
-            );
+            if let Some(binding) = shader.binding::<Camera>() {
+                rp.set_bind_group(binding as u32, &camera.group, &[]);
+            }
 
             for tri in render_queue.read().triangles() {
                 let end = offset + 3;

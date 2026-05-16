@@ -88,23 +88,26 @@ impl World for DelphosWorld {
         self.container.insert_resource(resource)
     }
 
-    fn resource<R: delphos_ecs::Resource>(&mut self) -> delphos_ecs::Rwc<R> {
+    fn resource<R: delphos_ecs::Resource + Default>(&mut self) -> delphos_ecs::Rwc<R> {
         self.container.resource()
     }
 
-    fn spawn(&mut self) -> delphos_ecs::Rwc<delphos_ecs::Entity> {
-        self.container.spawn()
+    fn resource_checked<R: delphos_ecs::Resource>(&mut self) -> Option<delphos_ecs::Rwc<R>> {
+        self.container.resource_checked()
     }
 
-    fn entity(&self, id: &delphos_ecs::EntityId) -> delphos_ecs::Rwc<delphos_ecs::Entity> {
-        self.container.entity(id)
+    fn entities<C: delphos_ecs::Component>(
+        &mut self,
+    ) -> &std::collections::HashSet<delphos_ecs::EntityId> {
+        self.container.entities::<C>()
     }
 
-    fn entity_checked(
-        &self,
-        id: &delphos_ecs::EntityId,
-    ) -> Option<delphos_ecs::Rwc<delphos_ecs::Entity>> {
-        self.container.entity_checked(id)
+    fn attach<C: delphos_ecs::Component>(
+        &mut self,
+        entity: delphos_ecs::EntityId,
+        component: C,
+    ) -> delphos_ecs::ComponentId<C> {
+        self.container.attach(entity, component)
     }
 
     fn spawn_component<C: delphos_ecs::Component>(

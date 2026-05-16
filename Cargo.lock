@@ -393,6 +393,7 @@ dependencies = [
 name = "delphos-ecs"
 version = "0.1.0"
 dependencies = [
+ "impl_variadics",
  "log",
 ]
 
@@ -699,6 +700,17 @@ dependencies = [
  "byteorder",
  "color_quant",
  "num-traits",
+]
+
+[[package]]
+name = "impl_variadics"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50b0f50ee54d6d50267e1ac9989e7042da411db999591afc049b4a7fc294a84c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

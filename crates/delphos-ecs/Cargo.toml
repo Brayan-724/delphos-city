@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+impl_variadics = "0.3.0"
 # Logger
 log.workspace = true
 

@@ -2,7 +2,7 @@ use delphos_ecs::{ComponentId, Resource, World};
 use delphos_math::FVec2;
 use wgpu::util::DeviceExt;
 
-use crate::{BindGroup, BindGroupId, BindLayout, DelphosRenderRaw};
+use crate::{DelphosRenderRaw, Material, MaterialLayout};
 
 const Z_RANGE: f32 = 100.;
 
@@ -13,7 +13,7 @@ pub struct Camera {
     pub target: FVec2,
     pub viewport: FVec2,
     pub rendering: FVec2,
-    pub bind_group: BindGroupId,
+    buffer: wgpu::Buffer,
 }
 
 impl Default for Camera {
@@ -24,47 +24,42 @@ impl Default for Camera {
 
 impl Resource for Camera {}
 
+impl Material for Camera {
+    fn layout(binding: u32) -> Option<MaterialLayout> {
+        match binding {
+            0 => Some(MaterialLayout::vertex_fragment(wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            })),
+            _ => None,
+        }
+    }
+
+    fn update(&mut self, world: &mut impl World) {
+        let raw_render = world.resource::<DelphosRenderRaw>().read();
+
+        self.buffer = self.get_buffer(&raw_render.device);
+    }
+
+    fn entry(&self, binding: u32) -> Option<wgpu::BindingResource<'_>> {
+        match binding {
+            0 => Some(self.buffer.as_entire_binding()),
+            _ => None,
+        }
+    }
+}
+
 impl Camera {
     pub fn new(world: &mut impl World, viewport: FVec2, rendering: FVec2) -> Self {
         let raw_render = world.resource::<DelphosRenderRaw>().read();
-
-        let layout = BindLayout::new(
-            &raw_render.device,
-            &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-            Some("Camera bind layout"),
-        );
-        let layout = world.spawn_component(layout);
-
-        let matrix = get_matrix(1., rendering, FVec2::ZERO);
-        let buffer = get_buffer(&raw_render.device, matrix);
-
-        let bind_group = BindGroup::new(
-            world,
-            &raw_render.device,
-            layout,
-            &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-            Some("Camera bind"),
-        );
-        let bind_group = world.spawn_component(bind_group);
 
         Self {
             scale: 1.,
             target: FVec2::ZERO,
             viewport,
             rendering,
-            bind_group,
+            buffer: get_buffer(&raw_render.device, [[0.; 4]; 4]),
         }
     }
 
@@ -81,20 +76,6 @@ impl Camera {
 
     pub fn get_buffer(&self, device: &wgpu::Device) -> wgpu::Buffer {
         get_buffer(device, self.get_matrix())
-    }
-
-    pub fn update_buffer(&self, world: &mut impl World) {
-        let raw_render = world.resource::<DelphosRenderRaw>();
-
-        let buffer = get_buffer(&raw_render.read().device, self.get_matrix());
-
-        world.component(&self.bind_group).write().update(
-            world,
-            &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        );
     }
 
     pub fn get_matrix(&self) -> [[f32; 4]; 4] {

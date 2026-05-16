@@ -1,4 +1,6 @@
-use crate::{BindGroupId, ShaderId};
+use delphos_ecs::UntypedComponentId;
+
+use crate::{MaterialBindId, Shader, ShaderId, ShaderMaterial};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
@@ -14,7 +16,7 @@ impl Vertex {
         1 => Float32x4,
         2 => Float32x2,
     ];
-    pub fn layout() -> wgpu::VertexBufferLayout<'static> {
+    pub const fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -33,5 +35,14 @@ pub struct Triangle {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct BindParams {
     pub shader: ShaderId,
-    pub material: BindGroupId,
+    pub material: MaterialBindId,
+}
+
+impl BindParams {
+    pub fn new<S: Shader>(material: MaterialBindId<impl ShaderMaterial<S>>) -> Self {
+        Self {
+            shader: S::SHADER_ID,
+            material: material.untyped(),
+        }
+    }
 }
